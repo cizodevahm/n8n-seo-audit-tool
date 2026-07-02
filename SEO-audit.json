@@ -1,0 +1,293 @@
+{
+  "name": "Seo Audit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "website-audit",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        160
+      ],
+      "id": "0e666d43-84dc-4ac9-a475-7f556aeacae8",
+      "name": "Webhook",
+      "webhookId": "b8847678-668d-4695-88f1-94b3579cf68c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/misceres~seo-audit-tool/run-sync-get-dataset-items",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer "
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n    \"maxRequestsPerCrawl\": 10,\n    \"proxy\": {\n        \"useApifyProxy\": true\n    },\n    \"startUrl\": \"{{ $json.body.url }}\"\n}",
+        "options": {
+          "redirect": {
+            "redirect": {}
+          },
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        160
+      ],
+      "id": "1c3b6d0c-09ce-4343-9282-2f3d468d0519",
+      "name": "Run SEO Audit Tool: Sync"
+    },
+    {
+      "parameters": {
+        "maxItems": 4
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        608,
+        160
+      ],
+      "id": "f443b9c4-3123-4a38-80fb-18aa61633bff",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        160
+      ],
+      "id": "25f8ab11-0d9a-44fa-9699-05c4ca9f17dd",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "38f3501d-caac-46ee-99b2-0a4bd6620da1",
+              "name": "url",
+              "value": "={{ $json.message.content.url }}",
+              "type": "string"
+            },
+            {
+              "id": "ead57600-049a-4794-aec6-c14435c5449a",
+              "name": "summary",
+              "value": "={{ $json.message.content.summary }}",
+              "type": "array"
+            },
+            {
+              "id": "c3b3517d-dbab-46c5-8366-13272f97ee36",
+              "name": "metrics",
+              "value": "={{ $json.message.content.metrics }}",
+              "type": "object"
+            },
+            {
+              "id": "edee8f96-80e4-48a0-a92b-2baf0aa357af",
+              "name": "details",
+              "value": "={{ $json.message.content.details }}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1120,
+        160
+      ],
+      "id": "a14fcb99-6c6c-4c44-b498-e1bed3f7951c",
+      "name": "Edit Fields",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.data }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1568,
+        160
+      ],
+      "id": "7ecb8001-9cd8-4bc2-9099-4523171bc631",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a JSON formatter for SEO audit results. Your task is to convert raw audit input into a clean structured JSON with four main keys: url, summary, metrics, and details.\n\nUse the following logic:\n- `url`: Just pass through the page URL.\n- `summary`: Generate a list of human-readable strings based on boolean and count fields:\n  - isH1: \"Has H1\" or \"Has no H1\"\n  - isH1OnlyOne: \"Only one H1 tag\" or \"Does not have only one H1 tag\"\n  - isH2: \"Has H2\" or \"No H2 found\"\n  - isTooEnoughLinks: \"Has enough links\" or \"Too few links\"\n  - notOptimizedImagesCount > 0: \"<count> unoptimized images found\" or \"No unoptimized images\"\n  - isContentEnoughLong: \"Content length is good\" or \"Content is too short\"\n  - isNotIframe: \"No iframe found\" or \"Iframe present\"\n  - robotsFileExists: \"Robots.txt file found\" or \"Robots.txt file not found\"\n  - brokenLinksCount > 0: \"<count> broken links found\" or \"No broken links\"\n  - externalBrokenLinksCount > 0: \"<count> external broken links found\" or \"No external broken links\"\n  - brokenImagesCount > 0: \"<count> broken images found\" or \"No broken images\"\n- `metrics`: Include the following as integers (can be zero):\n  - wordsCount, linksCount, brokenLinksCount, externalBrokenLinksCount, notOptimizedImagesCount\n- `details`: Include the following:\n  - externalBrokenLinks: array of strings (URLs) or \"No external broken links\"\n  - notOptimizedImages: array of strings (URLs) or \"No unoptimized images\"\n  - brokenLinks: array of strings (URLs) or \"No broken links\"\n  - brokenImages: array of strings (URLs) or \"No broken images\"\n\nRespond only with the resulting JSON object.\n",
+              "role": "system"
+            },
+            {
+              "content": "=Here is the Raw data from the Audit:\n\n{{ $('Run SEO Audit Tool: Sync').item.json.toJsonString() }}"
+            },
+            {
+              "content": "=Please output the data in JSON format, using the following structure:\n\n{\n  \"url\": \"\",\n  \"summary\": [],\n  \"metrics\": {\n    \"wordsCount\": 0,\n    \"linksCount\": 0,\n    \"brokenLinksCount\": 0,\n    \"externalBrokenLinksCount\": 0,\n    \"notOptimizedImagesCount\": 0\n  },\n  \"details\": {\n    \"externalBrokenLinks\": \"No external broken links\",\n    \"notOptimizedImages\": \"No unoptimized images\",\n    \"brokenLinks\": \"No broken links\",\n    \"brokenImages\": \"No broken images\"\n  }\n}\n",
+              "role": "assistant"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        800,
+        160
+      ],
+      "id": "df99d31d-b58e-447d-8cf1-38534e6a0f5c",
+      "name": "Audit",
+      "executeOnce": false,
+      "credentials": {
+        "openAiApi": {
+          "id": "S82tk5gntwQIBmYf",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [...new Map(items.map(i => {\n  const u = i.json.url;\n  const q = u.includes('?') ? '/?' + u.split('?')[1].split('=')[0] : null;\n  const p = (u.match(/^https?:\\/\\/[^\\/]+(\\/[^\\/\\?\\#]*)/)?.[1] || '/');\n  const key = q && p === '/' ? q : p;\n  return [key.toLowerCase(), i];\n})).values()];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        160
+      ],
+      "id": "5a9d10ed-a897-42f8-afcc-facc97718c82",
+      "name": "Filtering our similar urls"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Run SEO Audit Tool: Sync",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run SEO Audit Tool: Sync": {
+      "main": [
+        [
+          {
+            "node": "Filtering our similar urls",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Audit": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filtering our similar urls": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Respond to Webhook": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "aa6fd977-ed71-44ba-ba9a-5691725ee9d2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1eccc1afd62904dd61eb74e95ae8817fe7b0951af98985ce2c5e036301b98058"
+  },
+  "id": "5EA95YhJI5b3HfDI",
+  "tags": []
+}
